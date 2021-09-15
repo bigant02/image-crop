@@ -186,6 +186,21 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public Bitmap getResizedBitmap(Bitmap image, int maxSize) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+
+        float bitmapRatio = (float)width / (float) height;
+        if (bitmapRatio > 1) {
+            width = maxSize;
+            height = (int) (width / bitmapRatio);
+        } else {
+            height = maxSize;
+            width = (int) (height * bitmapRatio);
+        }
+        return Bitmap.createScaledBitmap(image, width, height, true);
+    }
+
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -194,7 +209,7 @@ public class MainActivity extends AppCompatActivity {
             if (resultCode == RESULT_OK) {
                 Bitmap takenImage = loadFromUri(intermediateProvider);
                 ImageView ivPreview = findViewById(R.id.originView);
-                ivPreview.setImageBitmap(takenImage);
+                ivPreview.setImageBitmap(getResizedBitmap(takenImage, 400));
                 onCropImage();
             } else {
                 Toast.makeText(this, "Picture wasn't taken!", Toast.LENGTH_SHORT).show();
@@ -205,7 +220,7 @@ public class MainActivity extends AppCompatActivity {
             saveBitmapFileToIntermediate(data.getData());
             Bitmap selectedImage = loadFromUri(intermediateProvider);
             ImageView ivPreview = findViewById(R.id.originView);
-            ivPreview.setImageBitmap(selectedImage);
+            ivPreview.setImageBitmap(getResizedBitmap(selectedImage, 400));
             onCropImage();
         }
 
@@ -213,7 +228,7 @@ public class MainActivity extends AppCompatActivity {
             if (resultCode == RESULT_OK) {
                 Bitmap cropImage = loadFromUri(resultProvider);
                 ImageView ivPreview = findViewById(R.id.resultView);
-                ivPreview.setImageBitmap(cropImage);
+                ivPreview.setImageBitmap(getResizedBitmap(cropImage, 400));
             }
         }
     }
