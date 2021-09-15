@@ -1,2 +1,2 @@
-# image-crop
+# Image Crop Sample
 Android Image Crop Sample
