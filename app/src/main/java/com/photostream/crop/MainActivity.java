@@ -1,8 +1,11 @@
 package com.photostream.crop;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
 
+import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
@@ -11,7 +14,6 @@ import android.graphics.ImageDecoder;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
@@ -28,9 +30,6 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity {
 
     public final String APP_TAG = "crop";
-    public final static int CAPTURE_PHOTO_CODE = 1034;
-    public final static int PICK_PHOTO_CODE = 1046;
-    public final static int CROP_PHOTO_CODE = 1052;
 
     public String intermediateName = "1.jpg";
     public String resultName = "2.jpg";
@@ -38,6 +37,9 @@ public class MainActivity extends AppCompatActivity {
     Uri intermediateProvider;
     Uri resultProvider;
 
+    ActivityResultLauncher<Intent> cameraActivityResultLauncher;
+    ActivityResultLauncher<Intent> galleryActivityResultLauncher;
+    ActivityResultLauncher<Intent> cropActivityResultLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,6 +59,40 @@ public class MainActivity extends AppCompatActivity {
                 onPickPhoto();
             }
         });
+
+        cameraActivityResultLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == Activity.RESULT_OK) {
+                        Bitmap takenImage = loadFromUri(intermediateProvider);
+                        ImageView ivPreview = findViewById(R.id.originView);
+                        ivPreview.setImageBitmap(getResizedBitmap(takenImage, 400));
+                        onCropImage();
+                    }
+                });
+
+        galleryActivityResultLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                        saveBitmapFileToIntermediate(result.getData().getData());
+                        Bitmap selectedImage = loadFromUri(intermediateProvider);
+                        ImageView ivPreview = findViewById(R.id.originView);
+                        ivPreview.setImageBitmap(getResizedBitmap(selectedImage, 400));
+                        onCropImage();
+                    }
+                });
+
+        cropActivityResultLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == Activity.RESULT_OK) {
+                        Bitmap cropImage = loadFromUri(resultProvider);
+                        ImageView ivPreview = findViewById(R.id.resultView);
+                        ivPreview.setImageBitmap(getResizedBitmap(cropImage, 400));
+                    }
+                });
+
     }
 
     public void onLaunchCamera() {
@@ -68,7 +104,7 @@ public class MainActivity extends AppCompatActivity {
             intermediateProvider = Uri.fromFile(photoFile);
         intent.putExtra(MediaStore.EXTRA_OUTPUT, intermediateProvider);
         if (intent.resolveActivity(getPackageManager()) != null) {
-            startActivityForResult(intent, CAPTURE_PHOTO_CODE);
+            cameraActivityResultLauncher.launch(intent);
         }
     }
 
@@ -76,7 +112,7 @@ public class MainActivity extends AppCompatActivity {
     public void onPickPhoto() {
         Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
         if (intent.resolveActivity(getPackageManager()) != null) {
-            startActivityForResult(intent, PICK_PHOTO_CODE);
+            galleryActivityResultLauncher.launch(intent);
         }
     }
 
@@ -121,7 +157,7 @@ public class MainActivity extends AppCompatActivity {
                 grantUriPermission(res.activityInfo.packageName, resultProvider, Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
                 cropIntent.setComponent(new ComponentName(res.activityInfo.packageName, res.activityInfo.name));
-                startActivityForResult(cropIntent, CROP_PHOTO_CODE);
+                cropActivityResultLauncher.launch(cropIntent);
             }
         } else {
             File photoFile = getPhotoFileUri(resultName);
@@ -137,7 +173,7 @@ public class MainActivity extends AppCompatActivity {
             intentCrop.putExtra("noFaceDetection", true);
             intentCrop.putExtra("return-data", false);
             intentCrop.putExtra(MediaStore.EXTRA_OUTPUT, resultProvider);
-            startActivityForResult(intentCrop, CROP_PHOTO_CODE);
+            cropActivityResultLauncher.launch(intentCrop);
         }
     }
 
@@ -201,35 +237,4 @@ public class MainActivity extends AppCompatActivity {
         return Bitmap.createScaledBitmap(image, width, height, true);
     }
 
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (requestCode == CAPTURE_PHOTO_CODE) {
-            if (resultCode == RESULT_OK) {
-                Bitmap takenImage = loadFromUri(intermediateProvider);
-                ImageView ivPreview = findViewById(R.id.originView);
-                ivPreview.setImageBitmap(getResizedBitmap(takenImage, 400));
-                onCropImage();
-            } else {
-                Toast.makeText(this, "Picture wasn't taken!", Toast.LENGTH_SHORT).show();
-            }
-        }
-
-        if ((data != null) && requestCode == PICK_PHOTO_CODE) {
-            saveBitmapFileToIntermediate(data.getData());
-            Bitmap selectedImage = loadFromUri(intermediateProvider);
-            ImageView ivPreview = findViewById(R.id.originView);
-            ivPreview.setImageBitmap(getResizedBitmap(selectedImage, 400));
-            onCropImage();
-        }
-
-        if(requestCode == CROP_PHOTO_CODE) {
-            if (resultCode == RESULT_OK) {
-                Bitmap cropImage = loadFromUri(resultProvider);
-                ImageView ivPreview = findViewById(R.id.resultView);
-                ivPreview.setImageBitmap(getResizedBitmap(cropImage, 400));
-            }
-        }
-    }
 }
